@@ -61,7 +61,9 @@ label{display:block;font-size:13px;color:#53636e;margin:12px 0 6px}
 
   <section class="card">
     <div style="font-weight:700">通知</div>
-    <p class="note">通知機能は現在準備中です。v4では水分管理・Supabaseへの記録同期だけを確認します。</p>
+    <p class="note">通知はiPhoneのWebアプリとしてホーム画面に追加し、通知を許可した環境で利用できます。ブラウザの制約により、閉じたWebアプリが「最後の摂取からちょうど2時間後」を必ず実行できるとは限りません。</p>
+    <div class="toggle"><span>水分リマインダー</span><input id="notifyToggle" type="checkbox"></div>
+    <div style="margin-top:10px"><button class="primary" id="notifyTest">通知をテスト</button></div>
   </section>
 </div>
 
@@ -82,9 +84,11 @@ label{display:block;font-size:13px;color:#53636e;margin:12px 0 6px}
 <div class="modal" id="settingsModal">
   <div class="sheet">
     <h2>⚙️ 設定</h2>
-    <label>1日の目標値（ml）</label>
-    <input id="goalInput" type="number" min="1" step="1" value="2500" inputmode="numeric">
-    <p class="note">v4では目標値と水分記録の基本機能を確認します。</p>
+    <label>1日の目標（ml）</label><input id="goalInput" type="number" min="1" step="50">
+    <label>通知間隔（時間）</label><input id="notifyHours" type="number" min="1" max="12" step="1">
+    <label>通知開始時刻（任意）</label><input id="notifyStart" type="time">
+    <label>通知終了時刻（任意）</label><input id="notifyEnd" type="time">
+    <p class="note">通知は「最後の摂取から指定時間以上経過」かつ「今日の目標未達」のときに促します。時間範囲を空欄にすると終日対象です。</p>
     <div class="row"><button class="secondary" id="cancelSettings">キャンセル</button><button class="primary" id="saveSettings">保存</button></div>
   </div>
 </div>
@@ -103,7 +107,6 @@ label{display:block;font-size:13px;color:#53636e;margin:12px 0 6px}
 <script>
 const SUPABASE_URL = "https://bowemcwlbmowgergkjbt.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_3lsprjQeQBFhtwdW7loKbA_WgB_cPm9";
-
 const KEY="waterTracker_v2";
 const defaults=[
  {id:"water",name:"水",icon:"💧",rate:100,defaultMl:500},
@@ -217,30 +220,52 @@ document.getElementById("manageBtn").onclick=()=>{renderManage();openModal("mana
 document.getElementById("closeManage").onclick=()=>closeModal("manageModal");
 document.getElementById("settingsBtn").onclick=()=>{
  document.getElementById("goalInput").value=state.goal;
+ document.getElementById("notifyHours").value=state.notifyHours;
+ document.getElementById("notifyStart").value=state.notifyStart;
+ document.getElementById("notifyEnd").value=state.notifyEnd;
  openModal("settingsModal");
 };
 document.getElementById("cancelSettings").onclick=()=>closeModal("settingsModal");
 document.getElementById("saveSettings").onclick=()=>{
  state.goal=Math.max(1,Number(document.getElementById("goalInput").value)||2500);
+ state.notifyHours=Math.max(1,Number(document.getElementById("notifyHours").value)||2);
+ state.notifyStart=document.getElementById("notifyStart").value;
+ state.notifyEnd=document.getElementById("notifyEnd").value;
  closeModal("settingsModal");render();toast("設定を保存しました");
 };
+if(p!=="granted"){e.target.checked=false;toast("通知の許可が必要です");return;}
+  } else {e.target.checked=false;toast("この環境では通知を利用できません");return;}
+ }
+ state.notify=e.target.checked;save();
+};
+document.getElementById("notifyTest").onclick=async()=>{
+ if(!("Notification" in window)){toast("この環境では通知を利用できません");return;}
+ const p=await Notification.requestPermission();
+ if(p==="granted") new Notification("💧 水分管理",{body:`現在 ${fmt(total())} / ${fmt(state.goal)} mlです。水分補給してる？`});
+ else toast("通知の許可が必要です");
+};
+function withinWindow(){
+ const now=new Date(), mins=now.getHours()*60+now.getMinutes();
+ const s=state.notifyStart?(()=>{let [h,m]=state.notifyStart.split(":").map(Number);return h*60+m})():0;
+ const e=state.notifyEnd?(()=>{let [h,m]=state.notifyEnd.split(":").map(Number);return h*60+m})():1439;
+ return !state.notifyStart&&!state.notifyEnd || (s<=e ? mins>=s&&mins<=e : mins>=s||mins<=e);
+}
+function checkReminder(){
+ if(!state.notify || total()>=state.goal || !withinWindow()) return;
+ const rec=todayRecords(); if(!rec.length)return;
+ const last=rec[rec.length-1].ts;
+ if(Date.now()-last>=state.notifyHours*3600000){
+   const stamp=new Date().toISOString().slice(0,13);
+   if(localStorage.getItem("lastReminder")!==stamp && "Notification" in window && Notification.permission==="granted"){
+     new Notification("💧 水分補給",{body:`最後の記録から${state.notifyHours}時間以上経っています。飲んでる？`});
+     localStorage.setItem("lastReminder",stamp);
+   }
+ }
+}
+setInterval(checkReminder,60000);
 render();
 
-async function enablePush(){
- if(!SUPABASE_URL||!SUPABASE_ANON_KEY||!VAPID_PUBLIC_KEY){toast("先にSupabase設定が必要です");return;}
- if(!("serviceWorker" in navigator)||!("PushManager" in window)){toast("この環境ではWeb Pushを利用できません");return;}
- try{
-  const reg=await navigator.serviceWorker.register("./sw.js");
-  const p=await Notification.requestPermission(); if(p!=="granted"){toast("通知を許可してください");return;}
-  let sub=await reg.pushManager.getSubscription();
-  if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:Uint8Array.from(atob(VAPID_PUBLIC_KEY.replace(/-/g,"+").replace(/_/g,"/")),c=>c.charCodeAt(0))});
-  await fetch(SUPABASE_URL+"/functions/v1/save-subscription",{method:"POST",headers:{"Content-Type":"application/json","apikey":SUPABASE_ANON_KEY,"Authorization":"Bearer "+SUPABASE_ANON_KEY},body:JSON.stringify({subscription:sub.toJSON(),device:navigator.userAgent})});
-  toast("バックグラウンド通知を有効にしました");
- }catch(e){console.error(e);toast("通知設定に失敗しました");}
-}
-const eb=document.createElement("button");eb.className="primary";eb.textContent="📲 バックグラウンド通知を有効化";eb.style.width="100%";eb.style.marginTop="10px";eb.onclick=enablePush;
-document.querySelector(".card:last-of-type").appendChild(eb);
-if("serviceWorker" in navigator) navigator.serviceWorker.register("./sw.js");
+if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(console.error);}
 </script>
 </body>
 </html>
