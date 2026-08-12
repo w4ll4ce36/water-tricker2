@@ -31,7 +31,7 @@ label{display:block;font-size:13px;color:#53636e;margin:12px 0 6px}
 </head>
 <body>
 <div class="app">
-  <h1>💧 水分管理 <span style="font-size:12px;color:#6a7982">v5</span></h1>
+  <h1>💧 水分管理 <span style="font-size:12px;color:#6a7982">v5.1</span></h1>
 
   <section class="card">
     <div class="sub">今日の水分</div>
@@ -58,6 +58,8 @@ label{display:block;font-size:13px;color:#53636e;margin:12px 0 6px}
     <ul class="list" id="history"></ul>
     <div id="empty" class="note">まだ記録がありません。</div>
   </section>
+
+
 </div>
 
 <div class="modal" id="drinkModal">
@@ -78,6 +80,7 @@ label{display:block;font-size:13px;color:#53636e;margin:12px 0 6px}
   <div class="sheet">
     <h2>⚙️ 設定</h2>
     <label>1日の目標（ml）</label><input id="goalInput" type="number" min="1" step="50">
+
     <div class="row"><button class="secondary" id="cancelSettings">キャンセル</button><button class="primary" id="saveSettings">保存</button></div>
   </div>
 </div>
@@ -104,7 +107,6 @@ const defaults=[
  {id:"milk",name:"牛乳",icon:"🥛",rate:88,defaultMl:200},
 ];
 let state=JSON.parse(localStorage.getItem(KEY)||"null")||{
- goal:2500, drinks:defaults, records:[]
 };
 function save(){localStorage.setItem(KEY,JSON.stringify(state));}
 function todayKey(){return new Date().toISOString().slice(0,10);}
@@ -217,29 +219,30 @@ document.getElementById("saveSettings").onclick=()=>{
 };
 render();
 
-async function testLocalNotification(){
- try{
-  if(!("Notification" in window)){toast("この環境では通知を利用できません");return;}
-  const permission=Notification.permission==="granted"?"granted":await Notification.requestPermission();
-  if(permission!=="granted"){toast("通知を許可してください");return;}
-  const reg=await navigator.serviceWorker.ready;
-  if(!reg.active){toast("Service Workerが起動していません");return;}
-  reg.active.postMessage({type:"TEST_NOTIFICATION"});
-  toast("🔔 通知テストを送信しました");
- }catch(e){
-  console.error("notification test failed:",e);
-  toast("通知テストに失敗しました");
- }
+async function directNotificationTest(){
+  const out=document.getElementById("notifyResult");
+  const show=s=>{out.textContent=s;console.log(s);};
+  try{
+    if(!("Notification" in window)){show("❌ Notification APIがありません");return;}
+    const permission=Notification.permission==="granted"?"granted":await Notification.requestPermission();
+    if(permission!=="granted"){show("❌ 通知許可がgrantedではありません: "+permission);return;}
+    if(!("serviceWorker" in navigator)){show("❌ Service Worker APIがありません");return;}
+    const reg=await navigator.serviceWorker.ready;
+    if(!reg||!reg.showNotification){show("❌ Service Worker registrationが取得できません");return;}
+    await reg.showNotification("💧 水分管理",{body:"v5.1 通知テスト成功！",tag:"water-v51-test"});
+    show("✅ showNotification() 成功");
+  }catch(e){
+    console.error(e);
+    show("❌ "+e.name+" / "+e.message);
+  }
 }
-const testBtn=document.createElement("button");
-testBtn.className="primary";
-testBtn.textContent="🔔 通知受信テスト";
-testBtn.style.cssText="width:100%;margin:10px 0";
-testBtn.onclick=testLocalNotification;
-document.querySelector(".app").appendChild(testBtn);
-
+const notifyCard=document.createElement("section");
+notifyCard.className="card";
+notifyCard.innerHTML='<div style="font-weight:700">🔔 通知テスト v5.1</div><div id="notifyResult" class="note" style="margin-top:8px">未実行</div><button class="primary" id="notifyDirectBtn" style="width:100%;margin-top:10px">通知を表示する</button>';
+document.querySelector(".app").appendChild(notifyCard);
+document.getElementById("notifyDirectBtn").onclick=directNotificationTest;
 if("serviceWorker" in navigator){
- navigator.serviceWorker.register("./sw.js").catch(e=>console.error("Service Worker registration failed:",e));
+  navigator.serviceWorker.register("./sw.js").then(()=>console.log("SW registered")).catch(e=>console.error("SW registration failed:",e));
 }
 
 </script>
