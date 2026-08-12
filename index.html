@@ -145,7 +145,7 @@ function render(){
    li.innerHTML=`<span>${r.icon} ${esc(r.name)} ${fmt(r.ml)}ml</span><b>+${fmt(r.water)}ml</b>`;
    h.appendChild(li);
  });
- document.getElementById("notifyToggle").checked=state.notify;
+ const notifyToggle=document.getElementById("notifyToggle"); if(notifyToggle) notifyToggle.checked=!!state.notify;
  save();
 }
 async function addDrink(d){
@@ -220,7 +220,7 @@ document.getElementById("manageBtn").onclick=()=>{renderManage();openModal("mana
 document.getElementById("closeManage").onclick=()=>closeModal("manageModal");
 document.getElementById("settingsBtn").onclick=()=>{
  document.getElementById("goalInput").value=state.goal;
- document.getElementById("notifyHours").value=state.notifyHours;
+ const notifyHours=document.getElementById("notifyHours"); if(notifyHours) notifyHours.value=state.notifyHours;
  document.getElementById("notifyStart").value=state.notifyStart;
  document.getElementById("notifyEnd").value=state.notifyEnd;
  openModal("settingsModal");
