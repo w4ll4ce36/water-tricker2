@@ -1,8 +1,8 @@
 {
-  "name": "水分管理",
-  "short_name": "水分管理",
-  "start_url": "./",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff"
+  "name":"Service Worker Test",
+  "short_name":"SW Test",
+  "start_url":"./",
+  "display":"standalone",
+  "background_color":"#ffffff",
+  "theme_color":"#ffffff"
 }
