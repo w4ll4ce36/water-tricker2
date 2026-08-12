@@ -60,6 +60,11 @@ label{display:block;font-size:13px;color:#53636e;margin:12px 0 6px}
   </section>
 
 
+<section class="card" id="notifyCard">
+  <div style="font-weight:700">🔔 通知テスト v5.2</div>
+  <div id="notifyResult" class="note" style="margin-top:8px">未実行</div>
+  <button class="primary" id="notifyDirectBtn" style="width:100%;margin-top:10px">通知を表示する</button>
+</section>
 </div>
 
 <div class="modal" id="drinkModal">
@@ -236,11 +241,9 @@ async function directNotificationTest(){
     show("❌ "+e.name+" / "+e.message);
   }
 }
-const notifyCard=document.createElement("section");
-notifyCard.className="card";
-notifyCard.innerHTML='<div style="font-weight:700">🔔 通知テスト v5.1</div><div id="notifyResult" class="note" style="margin-top:8px">未実行</div><button class="primary" id="notifyDirectBtn" style="width:100%;margin-top:10px">通知を表示する</button>';
-document.querySelector(".app").appendChild(notifyCard);
+const notifyCard=document.getElementById("notifyCard");
 document.getElementById("notifyDirectBtn").onclick=directNotificationTest;
+
 if("serviceWorker" in navigator){
   navigator.serviceWorker.register("./sw.js").then(()=>console.log("SW registered")).catch(e=>console.error("SW registration failed:",e));
 }
